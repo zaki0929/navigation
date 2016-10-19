@@ -34,7 +34,6 @@
 #include "pf_pdf.h"
 #include "pf_kdtree.h"
 
-
 // Compute the required number of samples, given that there are k bins
 // with samples in them.
 static int pf_resample_limit(pf_t *pf, int k);
@@ -254,7 +253,7 @@ void pf_update_action(pf_t *pf, pf_action_model_fn_t action_fn, void *action_dat
   set = pf->sets + pf->current_set;
 
   (*action_fn) (action_data, set);
-  
+
   return;
 }
 
@@ -272,18 +271,22 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
 
   // Compute the sample weights
   total = (*sensor_fn) (sensor_data, set);
-  
+
   if (total > 0.0)
   {
     // Normalize weights
-    double w_avg=0.0;
+    double w_avg = 0.0;
+    double w_sumv = 0.0, w_v = 0.0;							//add
     for (i = 0; i < set->sample_count; i++)
     {
       sample = set->samples + i;
       w_avg += sample->weight;
+      w_sumv += sample->weight * sample->weight;					//add
       sample->weight /= total;
     }
-    // Update running averages of likelihood of samples (Prob Rob p258)
+    w_v = ((w_sumv) - (w_avg * w_avg / set->sample_count)) / set->sample_count;		//add
+
+    // Update running averages of likelihood of samples (Prob Rob p258)    
     w_avg /= set->sample_count;
     if(pf->w_slow == 0.0)
       pf->w_slow = w_avg;
@@ -295,17 +298,99 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
       pf->w_fast += pf->alpha_fast * (w_avg - pf->w_fast);
     //printf("w_avg: %e slow: %e fast: %e\n", 
            //w_avg, pf->w_slow, pf->w_fast);
+
+
+/*----------------------------------------------------------------------------------*/
+    double ALPHA = 0.00525;
+    double beta = 0.0;
+    double ALPHA_W = 0.0000004;
+
+    beta = 1.0 - (w_avg / ALPHA);
+
+    if(beta > 0.0 && w_v < ALPHA_W)		//誘拐状態
+    {
+      double x_sum = 0.0, y_sum = 0.0, theta_sum = 0.0;		//パラメータの和
+      double x_sumv = 0.0, y_sumv = 0.0, theta_sumv = 0.0;	//２乗和
+      double x_v = 0.0, y_v = 0.0, theta_v = 0.0;		//分散
+      double v_limit = 20.0;					//分散の制限
+      int limit = 0;
+      int reset_limit = 0, reset_count = 0;
+      int reset_init = 1;
+
+      printf("kidnapped\n");
+      
+      pf_kdtree_clear(set->kdtree);
+      
+      for (i = 0; i < set->sample_count; i++)
+      {
+        sample = set->samples + i;
+        x_sum += sample->pose.v[0];
+        x_sumv += sample->pose.v[0] * sample->pose.v[0];
+        y_sum += sample->pose.v[1];
+        y_sumv += sample->pose.v[1] * sample->pose.v[1];
+        theta_sum += sample->pose.v[2];
+        theta_sumv += sample->pose.v[2] * sample->pose.v[2];
+      }
+
+      x_v = (x_sumv - (x_sum * x_sum / set->sample_count)) / set->sample_count;
+      y_v = (y_sumv - (y_sum * y_sum / set->sample_count)) / set->sample_count;
+      theta_v = (theta_sumv - (theta_sum * theta_sum / set->sample_count)) / set->sample_count;
+      
+      //分散の制限(これがないとエラーを起こす), オーバーフロー防止
+      if(x_v >= v_limit){
+        x_v = v_limit;
+      }
+      if(x_v <= -v_limit){
+        x_v = -v_limit;
+      }
+      if(y_v >= v_limit){
+        y_v = v_limit;
+      }
+      if(y_v <= -v_limit){
+        y_v = -v_limit;
+      }
+      if(theta_v >= M_PI/2){
+        theta_v = M_PI/2;
+      }
+      if(theta_v <= -M_PI/2){
+        theta_v = -M_PI/2;
+      }
+      
+        reset_limit = ((int)x_v + (int)y_v) / 2;
+
+      //分散の分だけ広げる
+      if(reset_count >= reset_limit){
+        for(i = 0; i < set->sample_count; i++){
+          sample = set->samples + i;
+          sample->pose.v[0] += (drand48() * 4 * x_v) - (2 * x_v);
+          sample->pose.v[1] += (drand48() * 4 * y_v) - (2 * y_v);
+          sample->pose.v[2] += (drand48() * 2 * theta_v) - (1 * theta_v);
+          sample->weight = 1.0 / set->sample_count;
+          }
+
+        reset_count = 0;
+        total = (*sensor_fn) (sensor_data, set);
+      }
+      reset_count++;
+    }
+    else
+    {
+      printf("not kidnapped\n");
+    }
+/*------------------------------------------------------------------------------------*/
+
+
   }
   else
   {
     // Handle zero total
     for (i = 0; i < set->sample_count; i++)
     {
-      sample = set->samples + i;
+      sample = set->samples + i; 
       sample->weight = 1.0 / set->sample_count;
     }
   }
-
+  
   return;
 }
 
