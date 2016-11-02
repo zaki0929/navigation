@@ -251,6 +251,7 @@ class AmclNode
     int max_beams_, min_particles_, max_particles_;
     double alpha1_, alpha2_, alpha3_, alpha4_, alpha5_;
     double alpha_slow_, alpha_fast_;
+    double alpha_, reset_th_cov_;
     double z_hit_, z_short_, z_max_, z_rand_, sigma_hit_, lambda_short_;
   //beam skip related params
     bool do_beamskip_;
@@ -403,6 +404,8 @@ AmclNode::AmclNode() :
   private_nh_.param("transform_tolerance", tmp_tol, 0.1);
   private_nh_.param("recovery_alpha_slow", alpha_slow_, 0.001);
   private_nh_.param("recovery_alpha_fast", alpha_fast_, 0.1);
+  private_nh_.param("reset_th_aleha", alpha_, 0.001);
+  private_nh_.param("reset_th_cov", reset_th_cov_, 0.0000004);
   private_nh_.param("tf_broadcast", tf_broadcast_, true);
 
   transform_tolerance_.fromSec(tmp_tol);
@@ -536,6 +539,7 @@ void AmclNode::reconfigureCB(AMCLConfig &config, uint32_t level)
 
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
+                 alpha_, reset_th_cov_,
                  (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
                  (void *)map_);
   pf_err_ = config.kld_err; 
@@ -821,8 +825,10 @@ AmclNode::handleMapMessage(const nav_msgs::OccupancyGrid& msg)
         free_space_indices.push_back(std::make_pair(i,j));
 #endif
   // Create the particle filter
+  ROS_INFO("Added expansion resettings!");
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
+                 alpha_, reset_th_cov_,
                  (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
                  (void *)map_);
   pf_->pop_err = pf_err_;
