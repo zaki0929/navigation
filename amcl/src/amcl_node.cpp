@@ -404,7 +404,7 @@ AmclNode::AmclNode() :
   private_nh_.param("transform_tolerance", tmp_tol, 0.1);
   private_nh_.param("recovery_alpha_slow", alpha_slow_, 0.001);
   private_nh_.param("recovery_alpha_fast", alpha_fast_, 0.1);
-  private_nh_.param("reset_th_aleha", alpha_, 0.001);
+  private_nh_.param("reset_th_alpha", alpha_, 0.001);
   private_nh_.param("reset_th_cov", reset_th_cov_, 0.0000004);
   private_nh_.param("tf_broadcast", tf_broadcast_, true);
 
