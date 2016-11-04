@@ -49,6 +49,7 @@
 #include "nav_msgs/GetMap.h"
 #include "nav_msgs/SetMap.h"
 #include "std_srvs/Empty.h"
+#include "std_srvs/SetBool.h"
 
 // For transform support
 #include "tf/transform_broadcaster.h"
@@ -150,8 +151,8 @@ class AmclNode
                                     std_srvs::Empty::Response& res);
     bool setMapCallback(nav_msgs::SetMap::Request& req,
                         nav_msgs::SetMap::Response& res);
-    bool setResetFlagCallback(std_srvs::Empty::Request& req,
-                              std_srvs::Empty::Response& res);
+    bool setResetFlagCallback(std_srvs::SetBool::Request& req,
+                              std_srvs::SetBool::Response& res);
 
     void laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan);
     void initialPoseReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
@@ -329,7 +330,7 @@ AmclNode::AmclNode() :
         initial_pose_hyp_(NULL),
         first_map_received_(false),
         first_reconfigure_call_(true),
-        do_reset_(false)
+        do_reset_(true)
 {
   boost::recursive_mutex::scoped_lock l(configuration_mutex_);
 
@@ -1053,12 +1054,15 @@ AmclNode::setMapCallback(nav_msgs::SetMap::Request& req,
 }
 
 bool
-AmclNode::setResetFlagCallback(std_srvs::Empty::Request& req,
-                         std_srvs::Empty::Response& res)
+AmclNode::setResetFlagCallback(std_srvs::SetBool::Request& req,
+                               std_srvs::SetBool::Response& res)
 {
-  do_reset_ = (do_reset_) ? false : true;
+  do_reset_ = req.data;
   // ROS_INFO("do_reset: %d \n", (int)do_reset_);
+  res.message = (do_reset_) ? std::string("true") : std::string("false");
   pf_set_reset_flag(pf_, (int) do_reset_);
+  
+  res.success = true;
   return true;
 }
 
