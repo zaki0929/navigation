@@ -45,6 +45,7 @@ static void pf_cluster_stats(pf_t *pf, pf_sample_set_t *set);
 // Create a new filter
 pf_t *pf_alloc(int min_samples, int max_samples,
                double alpha_slow, double alpha_fast,
+               int do_reset,
                double alpha, double reset_th_cov,
                pf_init_model_fn_t random_pose_fn, void *random_pose_data)
 {
@@ -106,6 +107,7 @@ pf_t *pf_alloc(int min_samples, int max_samples,
   pf->alpha_slow = alpha_slow;
   pf->alpha_fast = alpha_fast;
 
+  pf->do_reset = do_reset;
   pf->alpha = alpha;
   pf->reset_th_cov = reset_th_cov;
 
@@ -113,6 +115,13 @@ pf_t *pf_alloc(int min_samples, int max_samples,
   pf_init_converged(pf);
 
   return pf;
+}
+
+
+void pf_set_reset_flag(pf_t *pf, int flag)
+{
+  pf->do_reset = flag;
+  // printf("%d\n", pf->do_reset);
 }
 
 // Free an existing filter
@@ -307,7 +316,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
 /*----------------------------------------------------------------------------------*/
     double beta = 1.0 - (w_avg / pf->alpha);
 
-    if(beta > 0.0 && w_v < pf->reset_th_cov)		//誘拐状態
+    if(beta > 0.0 && w_v < pf->reset_th_cov && pf->do_reset)		//誘拐状態
     {
       double x_sum = 0.0, y_sum = 0.0, theta_sum = 0.0;		//パラメータの和
       double x_sumv = 0.0, y_sumv = 0.0, theta_sumv = 0.0;	//２乗和

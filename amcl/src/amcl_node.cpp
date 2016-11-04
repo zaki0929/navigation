@@ -150,6 +150,8 @@ class AmclNode
                                     std_srvs::Empty::Response& res);
     bool setMapCallback(nav_msgs::SetMap::Request& req,
                         nav_msgs::SetMap::Response& res);
+    bool setResetFlagCallback(std_srvs::Empty::Request& req,
+                              std_srvs::Empty::Response& res);
 
     void laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan);
     void initialPoseReceived(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
@@ -236,6 +238,7 @@ class AmclNode
     ros::ServiceServer global_loc_srv_;
     ros::ServiceServer nomotion_update_srv_; //to let amcl update samples without requiring motion
     ros::ServiceServer set_map_srv_;
+    ros::ServiceServer set_reset_flag_srv_;
     ros::Subscriber initial_pose_sub_old_;
     ros::Subscriber map_sub_;
 
@@ -262,6 +265,8 @@ class AmclNode
     double init_cov_[3];
     laser_model_t laser_model_type_;
     bool tf_broadcast_;
+
+    bool do_reset_;
 
     void reconfigureCB(amcl::AMCLConfig &config, uint32_t level);
 
@@ -323,7 +328,8 @@ AmclNode::AmclNode() :
 	      private_nh_("~"),
         initial_pose_hyp_(NULL),
         first_map_received_(false),
-        first_reconfigure_call_(true)
+        first_reconfigure_call_(true),
+        do_reset_(false)
 {
   boost::recursive_mutex::scoped_lock l(configuration_mutex_);
 
@@ -406,6 +412,7 @@ AmclNode::AmclNode() :
   private_nh_.param("recovery_alpha_fast", alpha_fast_, 0.1);
   private_nh_.param("reset_th_alpha", alpha_, 0.001);
   private_nh_.param("reset_th_cov", reset_th_cov_, 0.0000004);
+  private_nh_.param("do_expansion_resettings", do_reset_, do_reset_);
   private_nh_.param("tf_broadcast", tf_broadcast_, true);
 
   transform_tolerance_.fromSec(tmp_tol);
@@ -429,6 +436,7 @@ AmclNode::AmclNode() :
                                          this);
   nomotion_update_srv_= nh_.advertiseService("request_nomotion_update", &AmclNode::nomotionUpdateCallback, this);
   set_map_srv_= nh_.advertiseService("set_map", &AmclNode::setMapCallback, this);
+  set_reset_flag_srv_= nh_.advertiseService("set_reset_flag", &AmclNode::setResetFlagCallback, this);
 
   laser_scan_sub_ = new message_filters::Subscriber<sensor_msgs::LaserScan>(nh_, scan_topic_, 100);
   laser_scan_filter_ = 
@@ -539,6 +547,7 @@ void AmclNode::reconfigureCB(AMCLConfig &config, uint32_t level)
 
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
+                 (int)do_reset_,
                  alpha_, reset_th_cov_,
                  (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
                  (void *)map_);
@@ -826,8 +835,10 @@ AmclNode::handleMapMessage(const nav_msgs::OccupancyGrid& msg)
 #endif
   // Create the particle filter
   ROS_INFO("Added expansion resettings!");
+  /// ROS_INFO("do_reset: %d \n", (int)do_reset_);
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
+                 (int)do_reset_,
                  alpha_, reset_th_cov_,
                  (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
                  (void *)map_);
@@ -1038,6 +1049,16 @@ AmclNode::setMapCallback(nav_msgs::SetMap::Request& req,
   handleMapMessage(req.map);
   handleInitialPoseMessage(req.initial_pose);
   res.success = true;
+  return true;
+}
+
+bool
+AmclNode::setResetFlagCallback(std_srvs::Empty::Request& req,
+                         std_srvs::Empty::Response& res)
+{
+  do_reset_ = (do_reset_) ? false : true;
+  // ROS_INFO("do_reset: %d \n", (int)do_reset_);
+  pf_set_reset_flag(pf_, (int) do_reset_);
   return true;
 }
 
