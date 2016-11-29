@@ -288,19 +288,20 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
   if (total > 0.0)
   {
     // Normalize weights
+	double w_sum = 0.0;
     double w_avg = 0.0;
-    double w_sumv = 0.0, w_v = 0.0;							//add
+    double w_sumv = 0.0, w_v = 0.0;
     for (i = 0; i < set->sample_count; i++)
     {
       sample = set->samples + i;
-      w_avg += sample->weight;
-      w_sumv += sample->weight * sample->weight;					//add
+      w_sum += sample->weight;
+      w_sumv += sample->weight * sample->weight;
       sample->weight /= total;
     }
-    w_v = ((w_sumv) - (w_avg * w_avg / set->sample_count)) / set->sample_count;		//add
+    w_v = ((w_sumv) - (w_sum * w_sum / set->sample_count)) / set->sample_count;
 
     // Update running averages of likelihood of samples (Prob Rob p258)    
-    w_avg /= set->sample_count;
+    w_avg = w_sum / set->sample_count;
     if(pf->w_slow == 0.0)
       pf->w_slow = w_avg;
     else
@@ -314,7 +315,8 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
 
 
 /*----------------------------------------------------------------------------------*/
-    double beta = 1.0 - (w_avg / pf->alpha);
+    double beta = 1.0 - (w_sum / pf->alpha);
+//	printf("w_sum : %e, w_v : %e\n", w_sum, w_v);
 
     if(beta > 0.0 && w_v < pf->reset_th_cov && pf->do_reset)		//誘拐状態
     {
@@ -324,7 +326,6 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
       double v_limit = 20.0;					//分散の制限
       int limit = 0;
       int reset_limit = 0, reset_count = 0;
-      int reset_init = 1;
 
       // printf("kidnapped\n");
       
