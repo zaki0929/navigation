@@ -13,6 +13,7 @@ find_package(catkin REQUIRED
             tf
             dynamic_reconfigure
             nav_msgs
+            ecl_eigen
         )
 
 find_package(Boost REQUIRED)
@@ -41,7 +42,8 @@ add_library(amcl_pf
                     src/amcl/pf/pf_pdf.c
                     src/amcl/pf/pf_vector.c
                     src/amcl/pf/eig3.c
-                    src/amcl/pf/pf_draw.c)
+                    src/amcl/pf/pf_draw.c
+                    src//amcl/pf/add_ekf.cpp)
 
 add_library(amcl_map
                     src/amcl/map/map.c
