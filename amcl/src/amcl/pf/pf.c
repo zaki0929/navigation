@@ -29,6 +29,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdbool.h>
 
 #include "pf.h"
 #include "pf_pdf.h"
@@ -108,6 +109,7 @@ pf_t *pf_alloc(int min_samples, int max_samples,
   pf->alpha_fast = alpha_fast;
 
   pf->do_reset = do_reset;
+  pf->is_done_reset = false;
   pf->alpha = alpha;
   pf->reset_th_cov = reset_th_cov;
 
@@ -325,6 +327,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
       int limit = 0;
       int reset_limit = 0, reset_count = 0;
 
+      pf->is_done_reset = true;
       // printf("kidnapped\n");
 
       pf_kdtree_clear(set->kdtree);
@@ -380,10 +383,11 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
       }
       reset_count++;
     }
-    // else
-    // {
+    else
+    {
+      pf->is_done_reset = false;
     //   printf("not kidnapped\n");
-    // }
+    }
 /*------------------------------------------------------------------------------------*/
 
 
