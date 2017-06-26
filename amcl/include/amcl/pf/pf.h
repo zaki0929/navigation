@@ -128,6 +128,7 @@ typedef struct _pf_t
   double alpha_slow, alpha_fast;
 
   int do_reset;
+  double w_sum;
   bool is_done_reset;
   double alpha, reset_th_cov;
 

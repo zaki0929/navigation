@@ -109,6 +109,7 @@ pf_t *pf_alloc(int min_samples, int max_samples,
   pf->alpha_fast = alpha_fast;
 
   pf->do_reset = do_reset;
+  pf->w_sum = 0.0;
   pf->is_done_reset = false;
   pf->alpha = alpha;
   pf->reset_th_cov = reset_th_cov;
@@ -290,7 +291,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
   if (total > 0.0)
   {
     // Normalize weights
-	double w_sum = 0.0;
+	  double w_sum = 0.0;
     double w_avg = 0.0;
     double w_sumv = 0.0, w_v = 0.0;
     for (i = 0; i < set->sample_count; i++)
@@ -316,14 +317,15 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
            //w_avg, pf->w_slow, pf->w_fast);
 /*----------------------------------------------------------------------------------*/
     double beta = 1.0 - (w_sum / pf->alpha);
+    pf->w_sum = w_sum;
 //	printf("w_sum : %e, w_v : %e\n", w_sum, w_v);
-
-    if(beta > 0.0 && w_v < pf->reset_th_cov && pf->do_reset)		//誘拐状態
+    printf("%e\n", beta);
+    if(beta > 0.0 /*&& w_v < pf->reset_th_cov*/ && pf->do_reset)		//誘拐状態
     {
       double x_sum = 0.0, y_sum = 0.0, theta_sum = 0.0;		//パラメータの和
       double x_sumv = 0.0, y_sumv = 0.0, theta_sumv = 0.0;	//２乗和
       double x_v = 0.0, y_v = 0.0, theta_v = 0.0;		//分散
-      double v_limit = 20.0;					//分散の制限
+      double v_limit = 200.0;					//分散の制限
       int limit = 0;
       int reset_limit = 0, reset_count = 0;
 
