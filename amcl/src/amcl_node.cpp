@@ -25,6 +25,7 @@
 #include <map>
 #include <cmath>
 #include <fstream>
+#include <time.h>
 
 #include <boost/bind.hpp>
 #include <boost/thread/mutex.hpp>
@@ -299,8 +300,11 @@ void sigintHandler(int sig)
 
 void optimiseParamFromBag(const std::string & in_bag_fn)
 {
+  time_t t = time(NULL);
   std::ofstream ofs;
-  ofs.open("optimise_log.dat");
+  std::string fname;
+  fname = "~/optimise_log_" + std::to_string(t) + ".dat";
+  ofs.open(fname);
   if(!ofs){
     ROS_ERROR("Optimise log can't create");
     ros::shutdown();
@@ -308,6 +312,7 @@ void optimiseParamFromBag(const std::string & in_bag_fn)
   double param;
   double w_sum;
   double init_param = 0.0;
+  double param_interval = 0.1;
   double finish_param = 10.0;
   param = init_param;
   while(ros::ok() && param < finish_param)
@@ -315,8 +320,9 @@ void optimiseParamFromBag(const std::string & in_bag_fn)
     amcl_node_ptr->setResetParam(param);
     amcl_node_ptr->runFromBag(in_bag_fn);
     w_sum = amcl_node_ptr->getWSum();
+    std::cout << "test" << param << " " << w_sum << std::endl;
     ofs << param << " " << w_sum << std::endl;
-    param += 1.0;
+    param += param_interval;
     amcl_node_ptr.reset(new AmclNode());
   }
   ofs.close();
