@@ -125,6 +125,8 @@ public:
   void setResetParam(double param);
   double getWSum();
 
+  void requestMap();
+
   int process();
   void savePoseToServer();
 
@@ -227,8 +229,6 @@ private:
   // For slowing play-back when reading directly from a bag file
   ros::WallDuration bag_scan_period_;
 
-  void requestMap();
-
   // Helper to get odometric pose from transform system
   bool getOdomPose(tf::Stamped<tf::Pose> &pose,
                    double &x, double &y, double &yaw,
@@ -303,7 +303,7 @@ void optimiseParamFromBag(const std::string & in_bag_fn)
   time_t t = time(NULL);
   std::ofstream ofs;
   std::string fname;
-  fname = "~/optimise_log_" + std::to_string(t) + ".dat";
+  fname = "optimise_log_" + std::to_string(t) + ".dat";
   ofs.open(fname);
   if(!ofs){
     ROS_ERROR("Optimise log can't create");
@@ -313,16 +313,24 @@ void optimiseParamFromBag(const std::string & in_bag_fn)
   double w_sum;
   double init_param = 0.0;
   double param_interval = 0.1;
+  double param_magnification = 100;
+  bool is_param_incremental = true;
   double finish_param = 10.0;
   param = init_param;
-  while(ros::ok() && param < finish_param)
+  while(ros::ok() && param <= finish_param)
   {
     amcl_node_ptr->setResetParam(param);
+    amcl_node_ptr->requestMap();
     amcl_node_ptr->runFromBag(in_bag_fn);
     w_sum = amcl_node_ptr->getWSum();
     std::cout << "test" << param << " " << w_sum << std::endl;
     ofs << param << " " << w_sum << std::endl;
-    param += param_interval;
+    if(is_param_incremental){
+      param += param_interval;
+    }
+    else{
+      param *= param_magnification;
+    }
     amcl_node_ptr.reset(new AmclNode());
   }
   ofs.close();
