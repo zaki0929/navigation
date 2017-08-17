@@ -1240,18 +1240,50 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
     // The AMCLLaserData destructor will free this memory
     ldata.ranges = new double[ldata.range_count][2];
     ROS_ASSERT(ldata.ranges);
+    int usable_scan_num = 0;
     for(int i=0;i<ldata.range_count;i++)
     {
       // amcl doesn't (yet) have a concept of min range.  So we'll map short
       // readings to max range.
-      if(laser_scan->ranges[i] <= range_min)
+      if(laser_scan->ranges[i] <= range_min) 
         ldata.ranges[i][0] = ldata.range_max;
+      else if(laser_scan->ranges[i] >= ldata.range_max);
       else
+      {
         ldata.ranges[i][0] = laser_scan->ranges[i];
+        usable_scan_num++;
+      }
       // Compute bearing
       ldata.ranges[i][1] = angle_min +
               (i * angle_increment);
     }
+    ROS_INFO_STREAM("usable_scan_num: " << usable_scan_num);
+    if (usable_scan_num < 500) {
+      lasers_update_[laser_index] = false;
+      pf_odom_pose_ = pose;
+
+      pf_sample_set_t* set = pf_->sets + pf_->current_set;
+      ROS_DEBUG("Num samples: %d\n", set->sample_count);
+
+      // Publish the resulting cloud
+      // TODO: set maximum rate for publishing
+      if (!m_force_update) {
+        geometry_msgs::PoseArray cloud_msg;
+        cloud_msg.header.stamp = ros::Time::now();
+        cloud_msg.header.frame_id = global_frame_id_;
+        cloud_msg.poses.resize(set->sample_count);
+        for(int i=0;i<set->sample_count;i++)
+        {
+          tf::poseTFToMsg(tf::Pose(tf::createQuaternionFromYaw(set->samples[i].pose.v[2]),
+                                   tf::Vector3(set->samples[i].pose.v[0],
+                                             set->samples[i].pose.v[1], 0)),
+                          cloud_msg.poses[i]);
+        }
+        particlecloud_pub_.publish(cloud_msg);
+      }
+      return;
+    }
+    ROS_INFO_STREAM("ranges.size: " << laser_scan->ranges.size());
 
     lasers_[laser_index]->UpdateSensor(pf_, (AMCLSensorData*)&ldata);
 
