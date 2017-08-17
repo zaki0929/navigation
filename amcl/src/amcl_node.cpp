@@ -269,6 +269,8 @@ class AmclNode
 
     bool do_reset_;
 
+    int scan_skip_th_;
+
     void reconfigureCB(amcl::AMCLConfig &config, uint32_t level);
 
     ros::Time last_laser_received_ts_;
@@ -414,6 +416,7 @@ AmclNode::AmclNode() :
   private_nh_.param("reset_th_alpha", alpha_, 0.001);
   private_nh_.param("reset_th_cov", reset_th_cov_, 0.0000001);
   private_nh_.param("do_expansion_resettings", do_reset_, do_reset_);
+  private_nh_.param("scan_skip_th", scan_skip_th_, 0);
   private_nh_.param("tf_broadcast", tf_broadcast_, true);
 
   transform_tolerance_.fromSec(tmp_tol);
@@ -1258,7 +1261,8 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
               (i * angle_increment);
     }
     ROS_INFO_STREAM("usable_scan_num: " << usable_scan_num);
-    if (usable_scan_num < 500) {
+    if (usable_scan_num < scan_skip_th_) {
+      ROS_INFO_STREAM("skipping scan!! only sampling!! :" << usable_scan_num);
       lasers_update_[laser_index] = false;
       pf_odom_pose_ = pose;
 
@@ -1283,7 +1287,6 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
       }
       return;
     }
-    ROS_INFO_STREAM("ranges.size: " << laser_scan->ranges.size());
 
     lasers_[laser_index]->UpdateSensor(pf_, (AMCLSensorData*)&ldata);
 
