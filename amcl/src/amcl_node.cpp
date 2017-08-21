@@ -25,6 +25,7 @@
 #include <map>
 #include <cmath>
 #include <fstream>
+#include <string>
 #include <time.h>
 
 #include <boost/bind.hpp>
@@ -207,6 +208,8 @@ private:
   std::map<std::string, int> frame_to_laser_;
 
   // Particle filter
+  std::vector<pf_t*> pf_vector_;
+  int pf_vector_size_;
   pf_t *pf_;
   double pf_err_, pf_z_;
   bool pf_init_;
@@ -250,6 +253,10 @@ private:
   ros::ServiceServer set_reset_flag_srv_;
   ros::Subscriber initial_pose_sub_old_;
   ros::Subscriber map_sub_;
+
+  std::vector<ros::Publisher> particlecloud_pub_vec_;
+  std::vector<ros::Publisher> reset_notify_pub_vec_;
+  std::vector<ros::Publisher> w_sum_pub_vec_;
 
   amcl_hyp_t *initial_pose_hyp_;
   bool first_map_received_;
@@ -379,6 +386,7 @@ AmclNode::AmclNode() : sent_first_transform_(false),
                        initial_pose_hyp_(NULL),
                        first_map_received_(false),
                        first_reconfigure_call_(true),
+                       pf_vector_size_(10),
                        do_reset_(true)
 {
   boost::recursive_mutex::scoped_lock l(configuration_mutex_);
@@ -485,6 +493,13 @@ AmclNode::AmclNode() : sent_first_transform_(false),
   particlecloud_pub_ = nh_.advertise<geometry_msgs::PoseArray>("particlecloud", 2, true);
   reset_notify_pub_ = nh_.advertise<std_msgs::Bool>("reset_notify", 2, true);
   w_sum_pub_ = nh_.advertise<std_msgs::Float64>("w_sum", 10, true);
+
+  for(int i=0;i<pf_vector_size_;i++){
+    particlecloud_pub_vec_.push_back(nh_.advertise<geometry_msgs::PoseArray>("particlecloud"+std::to_string(i), 2, true));
+    reset_notify_pub_vec_.push_back(reset_notify_pub_ = nh_.advertise<std_msgs::Bool>("reset_notify"+std::to_string(i), 2, true));
+    w_sum_pub_vec_.push_back(nh_.advertise<std_msgs::Float64>("w_sum"+std::to_string(i), 10, true));
+  }
+
   global_loc_srv_ = nh_.advertiseService("global_localization",
                                          &AmclNode::globalLocalizationCallback,
                                          this);
@@ -606,6 +621,21 @@ void AmclNode::reconfigureCB(AMCLConfig &config, uint32_t level)
   beam_skip_threshold_ = config.beam_skip_threshold;
 
   alpha_ = config.reset_th_alpha;
+  pf_vector_.clear();
+  for(int i; i=0; i<pf_vector_size_){
+    pf_vector_.push_back(
+      pf_alloc(min_particles_, max_particles_,
+                 alpha_slow_, alpha_fast_,
+                 (int)do_reset_,
+                 alpha_, reset_th_cov_,
+                 (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
+                 (void *)map_
+                )
+    );
+    pf_vector_[i]->pop_err = pf_err_;
+    pf_vector_[i]->pop_z = pf_z_;
+  }
+
 
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
@@ -905,6 +935,21 @@ void AmclNode::handleMapMessage(const nav_msgs::OccupancyGrid &msg)
   // Create the particle filter
   ROS_INFO("Added expansion resettings!");
   /// ROS_INFO("do_reset: %d \n", (int)do_reset_);
+  pf_vector_.clear();
+  for(int i=0; i<pf_vector_size_; i++){
+    pf_vector_.push_back(
+      pf_alloc(min_particles_, max_particles_,
+                 alpha_slow_, alpha_fast_,
+                 (int)do_reset_,
+                 alpha_, reset_th_cov_,
+                 (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
+                 (void *)map_
+                )
+    );
+    pf_vector_[i]->pop_err = pf_err_;
+    pf_vector_[i]->pop_z = pf_z_;
+  }
+
   pf_ = pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
                  (int)do_reset_,
@@ -926,6 +971,11 @@ void AmclNode::handleMapMessage(const nav_msgs::OccupancyGrid &msg)
   pf_init_pose_cov.m[2][2] = init_cov_[2];
   pf_init(pf_, pf_init_pose_mean, pf_init_pose_cov);
   pf_init_ = false;
+
+  // std::vector<pf_t*>::iterator itr = pf_vector_.begin();
+  for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+    pf_init(*itr, pf_init_pose_mean, pf_init_pose_cov);
+  }
 
   // Instantiate the sensor objects
   // Odometry
@@ -971,6 +1021,9 @@ void AmclNode::freeMapDependentMemory()
   }
   if (pf_ != NULL)
   {
+    for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+      pf_free(*itr);
+    }
     pf_free(pf_);
     pf_ = NULL;
   }
@@ -1094,6 +1147,11 @@ bool AmclNode::globalLocalizationCallback(std_srvs::Empty::Request &req,
   }
   boost::recursive_mutex::scoped_lock gl(configuration_mutex_);
   ROS_INFO("Initializing with uniform distribution");
+  auto itr = pf_vector_.begin();
+  for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+    pf_init_model(*itr, (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
+                (void *)map_);
+  }
   pf_init_model(pf_, (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
                 (void *)map_);
   ROS_INFO("Global initialisation done!");
@@ -1125,6 +1183,9 @@ bool AmclNode::setResetFlagCallback(std_srvs::SetBool::Request &req,
   do_reset_ = req.data;
   // ROS_INFO("do_reset: %d \n", (int)do_reset_);
   res.message = (do_reset_) ? std::string("true") : std::string("false");
+  for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+    pf_set_reset_flag(*itr, (int)do_reset_);
+  }
   pf_set_reset_flag(pf_, (int)do_reset_);
 
   res.success = true;
@@ -1248,6 +1309,10 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     odata.delta = delta;
 
     // Use the action data to update the filter
+    for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+      odom_->UpdateAction(*itr, (AMCLSensorData *)&odata);
+    }
+
     odom_->UpdateAction(pf_, (AMCLSensorData *)&odata);
 
     // Pose at last filter update
@@ -1318,7 +1383,10 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
       ldata.ranges[i][1] = angle_min +
                            (i * angle_increment);
     }
-
+    
+    for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+      lasers_[laser_index]->UpdateSensor(*itr, (AMCLSensorData *)&ldata);
+    }
     lasers_[laser_index]->UpdateSensor(pf_, (AMCLSensorData *)&ldata);
 
     if (pf_->is_done_reset)
@@ -1330,6 +1398,19 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     std_msgs::Float64 w_sum;
     w_sum.data = pf_->w_sum;
     w_sum_pub_.publish(w_sum);
+
+    for(auto itr=pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+      int itr_cnt = itr - pf_vector_.begin();
+      if ((*itr)->is_done_reset)
+      {
+        std_msgs::Bool notify;
+        notify.data = (*itr)->is_done_reset;
+        reset_notify_pub_vec_[itr_cnt].publish(notify);
+      }
+      std_msgs::Float64 w_sum;
+      w_sum.data = (*itr)->w_sum;
+      w_sum_pub_vec_[itr_cnt].publish(w_sum);
+    }
     w_sum_sum_ += pf_->w_sum;
 
     lasers_update_[laser_index] = false;
@@ -1339,8 +1420,31 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     // Resample the particles
     if (!(++resample_count_ % resample_interval_))
     {
+      for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+        pf_update_resample(*itr);
+      }
       pf_update_resample(pf_);
       resampled = true;
+    }
+
+    for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+      pf_sample_set_t *set = (*itr)->sets + (*itr)->current_set;
+      int itr_cnt = itr - pf_vector_.begin();
+      if (!m_force_update)
+      {
+        geometry_msgs::PoseArray cloud_msg;
+        cloud_msg.header.stamp = ros::Time::now();
+        cloud_msg.header.frame_id = global_frame_id_;
+        cloud_msg.poses.resize(set->sample_count);
+        for (int i = 0; i < set->sample_count; i++)
+        {
+          tf::poseTFToMsg(tf::Pose(tf::createQuaternionFromYaw(set->samples[i].pose.v[2]),
+                                   tf::Vector3(set->samples[i].pose.v[0],
+                                               set->samples[i].pose.v[1], 0)),
+                          cloud_msg.poses[i]);
+        }
+        particlecloud_pub_vec_[itr_cnt].publish(cloud_msg);
+      }
     }
 
     pf_sample_set_t *set = pf_->sets + pf_->current_set;
