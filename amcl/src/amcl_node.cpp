@@ -1243,7 +1243,7 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
     // The AMCLLaserData destructor will free this memory
     ldata.ranges = new double[ldata.range_count][2];
     ROS_ASSERT(ldata.ranges);
-    int usable_scan_num = 0;
+    int usable_scan = 0;
     for(int i=0;i<ldata.range_count;i++)
     {
       // amcl doesn't (yet) have a concept of min range.  So we'll map short
@@ -1254,15 +1254,14 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
       else
       {
         ldata.ranges[i][0] = laser_scan->ranges[i];
-        usable_scan_num++;
+        usable_scan++;
       }
       // Compute bearing
       ldata.ranges[i][1] = angle_min +
               (i * angle_increment);
     }
-    ROS_INFO_STREAM("usable_scan_num: " << usable_scan_num);
-    if (usable_scan_num < scan_skip_th_) {
-      ROS_INFO_STREAM("skipping scan!! only sampling!! :" << usable_scan_num);
+    if (usable_scan < scan_skip_th_) {
+      ROS_INFO("skipping scan!! only sampling!!");
       lasers_update_[laser_index] = false;
       pf_odom_pose_ = pose;
 
