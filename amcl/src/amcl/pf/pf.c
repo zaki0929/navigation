@@ -319,7 +319,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
     double beta = 1.0 - (w_sum / pf->alpha);
     pf->w_sum = w_sum;
 //	printf("w_sum : %e, w_v : %e\n", w_sum, w_v);
-    printf("%e\n", beta);
+    // printf("%e\n", beta);
     if(beta > 0.0 /*&& w_v < pf->reset_th_cov*/ && pf->do_reset)		//誘拐状態
     {
       double x_sum = 0.0, y_sum = 0.0, theta_sum = 0.0;		//パラメータの和

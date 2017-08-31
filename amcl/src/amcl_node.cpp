@@ -26,6 +26,9 @@
 #include <cmath>
 #include <fstream>
 #include <string>
+#include <random>
+#include <numeric>
+#include <chrono>
 #include <time.h>
 
 #include <boost/bind.hpp>
@@ -405,8 +408,8 @@ AmclNode::AmclNode() : sent_first_transform_(false),
   private_nh_.param("laser_min_range", laser_min_range_, -1.0);
   private_nh_.param("laser_max_range", laser_max_range_, -1.0);
   private_nh_.param("laser_max_beams", max_beams_, 30);
-  private_nh_.param("min_particles", min_particles_, 100);
-  private_nh_.param("max_particles", max_particles_, 5000);
+  private_nh_.param("min_particles", min_particles_, 500);
+  private_nh_.param("max_particles", max_particles_, 500);
   private_nh_.param("kld_err", pf_err_, 0.01);
   private_nh_.param("kld_z", pf_z_, 0.99);
   private_nh_.param("odom_alpha1", alpha1_, 0.2);
@@ -1469,6 +1472,72 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     }
   }
 
+  if(resampled){
+    auto start = std::chrono::system_clock::now();
+
+    std::vector<double> max_w_vec;
+    for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){ 
+      pf_sample_set_t *set;
+      set = (*itr)->sets + (*itr)->current_set;
+      std::vector<double> w_vec;
+      for(int i=0; i<set->sample_count; i++){
+        pf_sample_t *sample;
+        sample = set->samples + i;
+        w_vec.push_back(sample->weight);
+      }
+      max_w_vec.push_back(*std::max_element(w_vec.begin(), w_vec.end()));
+    }
+    
+    const auto sum = std::accumulate(max_w_vec.begin(), max_w_vec.end(), 0.0);
+    for(auto& i:max_w_vec){
+      // std::cout << i;
+      i /= sum;
+    }
+    // std::cout << std::endl;
+    
+    std::vector<int> idx(max_w_vec.size());
+    std::iota(idx.begin(), idx.end(), 0);
+
+    std::sort(
+      idx.begin(),
+      idx.end(),
+      [&](int x, int y){return max_w_vec[x] < max_w_vec[y];}
+    );
+
+    //wの大きい順に，その割合に応じてそのwを持つpfをvectorに追加していく．
+    //w_cntにwを足していって，合計が0.8を超えたらやめる．
+    //残りの2割は，最も最尤なpfのalphaをランダムに変更する（ランダムパーティクルの挿入）
+    std::random_device rnd;
+    std::mt19937 mt(rnd());
+    std::uniform_real_distribution<> rand_alpha(0.0,10.0);
+
+    double w_cnt = 0.0;
+    int k=0;
+    std::vector<pf_t*> pf_vector_current;
+    // ここのループの実装が最悪
+    for(auto i:idx){
+      w_cnt += max_w_vec[i];
+      if(w_cnt <= 0.8){
+        for(int j=0; j<std::round(pf_vector_size_ * max_w_vec[i]); j++){
+          pf_vector_current.push_back(pf_vector_[i]);
+        }
+      }
+      else{
+        pf_vector_current.push_back(pf_vector_[i]);
+        pf_vector_current[k]->alpha = rand_alpha(mt);
+      }
+      ROS_INFO("%d, %f, %f", i, max_w_vec[i], pf_vector_current[k]->alpha);
+      k++;
+    }
+    std::cout << std::endl;
+    // ROS_INFO("pf_vector_current %d", pf_vector_current.size());
+    pf_vector_ = pf_vector_current;
+
+    auto end = std::chrono::system_clock::now();
+    // ROS_INFO("%f", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    // std::cout << end - start << std::endl;
+  }
+
   if (resampled || force_publication)
   {
     // Read out the current hypotheses
@@ -1723,6 +1792,9 @@ void AmclNode::applyInitialPose()
   boost::recursive_mutex::scoped_lock cfl(configuration_mutex_);
   if (initial_pose_hyp_ != NULL && map_ != NULL)
   {
+    for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+      pf_init(*itr, initial_pose_hyp_->pf_pose_mean, initial_pose_hyp_->pf_pose_cov);
+    }
     pf_init(pf_, initial_pose_hyp_->pf_pose_mean, initial_pose_hyp_->pf_pose_cov);
     pf_init_ = false;
 
