@@ -44,6 +44,7 @@ static int pf_resample_limit(pf_t *pf, int k);
 // Create a new filter
 pf_t *pf_alloc(int min_samples, int max_samples,
                double alpha_slow, double alpha_fast,
+		int do_reset,
                double alpha, double reset_th_cov,
                pf_init_model_fn_t random_pose_fn, void *random_pose_data)
 {
@@ -105,6 +106,7 @@ pf_t *pf_alloc(int min_samples, int max_samples,
   pf->alpha_slow = alpha_slow;
   pf->alpha_fast = alpha_fast;
 
+  pf->do_reset = do_reset;
   pf->alpha = alpha;
   pf->reset_th_cov = reset_th_cov;
 
@@ -113,6 +115,11 @@ pf_t *pf_alloc(int min_samples, int max_samples,
 
   return pf;
 }
+
+void pf_set_reset_flag(pf_t *pf, int flag){
+    pf->do_reset = flag;
+}
+
 
 // Free an existing filter
 void pf_free(pf_t *pf)
@@ -305,7 +312,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
 
 /*----------------------------------------------------------------------------------*/
     double beta = 1.0 - (w_sum / pf->alpha);
-//	printf("w_sum : %e, w_v : %e\n", w_sum, w_v);
+	printf("beta : %e, w_v : %e\n", beta, w_v);
    if(beta > 0.0 && w_v < pf->reset_th_cov && pf->do_reset){    //誘拐状態
        double x_sum = 0.0, y_sum = 0.0, theta_sum = 0.0;		//パラメータの和
        double x_sumv = 0.0, y_sumv = 0.0, theta_sumv = 0.0;	    //２乗和
@@ -313,7 +320,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
        double v_limit = 20.0;					                //分散の制限
        int limit = 0;
        int reset_limit = 0, reset_count = 0;
-       // printf("kidnapped\n");
+        printf("kidnapped\n");
        pf_kdtree_clear(set->kdtree);
        for (i = 0; i < set->sample_count; i++){
            sample = set->samples + i;
