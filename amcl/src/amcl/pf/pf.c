@@ -325,7 +325,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
       double x_sum = 0.0, y_sum = 0.0, theta_sum = 0.0;		//パラメータの和
       double x_sumv = 0.0, y_sumv = 0.0, theta_sumv = 0.0;	//２乗和
       double x_v = 0.0, y_v = 0.0, theta_v = 0.0;		//分散
-      double v_limit = 200.0;					//分散の制限
+      double v_limit = DBL_MAX;					//分散の制限
       int limit = 0;
       int reset_limit = 0, reset_count = 0;
 

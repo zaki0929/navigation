@@ -1487,6 +1487,7 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
       particlecloud_pub_.publish(cloud_msg);
     }
   }
+  std::vector<int> idx;
   if(resampled){
     auto start = std::chrono::system_clock::now();
     std::vector<double> max_w_vec;
@@ -1512,7 +1513,7 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     }
     std::cout << std::endl;
     
-    std::vector<int> idx(max_w_vec.size());
+    idx = std::vector<int>(max_w_vec.size(), 0);
     std::iota(idx.begin(), idx.end(), 0);
 
     std::sort(
@@ -1557,14 +1558,14 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     double max_weight = 0.0;
     int max_weight_hyp = -1;
     std::vector<amcl_hyp_t> hyps;
-    hyps.resize(pf_->sets[pf_->current_set].cluster_count);
+    hyps.resize(pf_vector_[idx[0]]->sets[pf_vector_[idx[0]]->current_set].cluster_count);
     for (int hyp_count = 0;
-         hyp_count < pf_->sets[pf_->current_set].cluster_count; hyp_count++)
+         hyp_count < pf_vector_[idx[0]]->sets[pf_vector_[idx[0]]->current_set].cluster_count; hyp_count++)
     {
       double weight;
       pf_vector_t pose_mean;
       pf_matrix_t pose_cov;
-      if (!pf_get_cluster_stats(pf_, hyp_count, &weight, &pose_mean, &pose_cov))
+      if (!pf_get_cluster_stats(pf_vector_[idx[0]], hyp_count, &weight, &pose_mean, &pose_cov))
       {
         ROS_ERROR("Couldn't get stats on cluster %d", hyp_count);
         break;
@@ -1593,7 +1594,9 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
          pf_matrix_fprintf(hyps[max_weight_hyp].pf_pose_cov, stdout, "%6.3f");
          puts("");
        */
-
+      
+      // PoseWithCovarianceStampedを配信するところコメントアウト中
+       /*
       geometry_msgs::PoseWithCovarianceStamped p;
       // Fill in the header
       p.header.frame_id = global_frame_id_;
@@ -1620,18 +1623,17 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
       //p.covariance[6*5+5] = hyps[max_weight_hyp].pf_pose_cov.m[2][2];
       p.pose.covariance[6 * 5 + 5] = set->cov.m[2][2];
 
-      /*
-         printf("cov:\n");
-         for(int i=0; i<6; i++)
-         {
-         for(int j=0; j<6; j++)
-         printf("%6.3f ", p.covariance[6*i+j]);
-         puts("");
-         }
-       */
+        //  printf("cov:\n");
+        //  for(int i=0; i<6; i++)
+        //  {
+        //  for(int j=0; j<6; j++)
+        //  printf("%6.3f ", p.covariance[6*i+j]);
+        //  puts("");
+        //  }
 
       pose_pub_.publish(p);
       last_published_pose = p;
+      */
 
       ROS_DEBUG("New pose: %6.3f %6.3f %6.3f",
                 hyps[max_weight_hyp].pf_pose_mean.v[0],
