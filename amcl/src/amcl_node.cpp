@@ -210,6 +210,10 @@ private:
   std::vector<bool> lasers_update_;
   std::map<std::string, int> frame_to_laser_;
 
+  std::mt19937 mt_;
+  std::random_device rnd_;
+  std::uniform_real_distribution<double> rand_alpha_;
+
   // Particle filter
   std::vector<pf_t*> pf_vector_;
   int pf_vector_size_;
@@ -222,6 +226,8 @@ private:
   int resample_count_;
   double laser_min_range_;
   double laser_max_range_;
+
+  int pub_cnt_;
 
   //Nomotion update control
   bool m_force_update; // used to temporarily let amcl update samples even when no motion occurs...
@@ -399,6 +405,8 @@ AmclNode::AmclNode() : sent_first_transform_(false),
   private_nh_.param("first_map_only", first_map_only_, false);
 
   double tmp;
+  pub_cnt_ = 0;
+
   w_sum_sum_ = 0;
   private_nh_.param("gui_publish_rate", tmp, -1.0);
   gui_publish_period = ros::Duration(1.0 / tmp);
@@ -408,8 +416,8 @@ AmclNode::AmclNode() : sent_first_transform_(false),
   private_nh_.param("laser_min_range", laser_min_range_, -1.0);
   private_nh_.param("laser_max_range", laser_max_range_, -1.0);
   private_nh_.param("laser_max_beams", max_beams_, 30);
-  private_nh_.param("min_particles", min_particles_, 500);
-  private_nh_.param("max_particles", max_particles_, 500);
+  private_nh_.param("min_particles", min_particles_, 100);
+  private_nh_.param("max_particles", max_particles_, 100);
   private_nh_.param("kld_err", pf_err_, 0.01);
   private_nh_.param("kld_z", pf_z_, 0.99);
   private_nh_.param("odom_alpha1", alpha1_, 0.2);
@@ -479,6 +487,9 @@ AmclNode::AmclNode() : sent_first_transform_(false),
   private_nh_.param("tf_broadcast", tf_broadcast_, true);
 
   transform_tolerance_.fromSec(tmp_tol);
+
+  mt_.seed(rnd_());
+  rand_alpha_ = std::uniform_real_distribution<double> (0.0,10.0);
 
   {
     double bag_scan_period;
@@ -630,7 +641,7 @@ void AmclNode::reconfigureCB(AMCLConfig &config, uint32_t level)
       pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
                  (int)do_reset_,
-                 alpha_, reset_th_cov_,
+                 rand_alpha_(mt_), reset_th_cov_,
                  (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
                  (void *)map_
                 )
@@ -940,11 +951,12 @@ void AmclNode::handleMapMessage(const nav_msgs::OccupancyGrid &msg)
   /// ROS_INFO("do_reset: %d \n", (int)do_reset_);
   pf_vector_.clear();
   for(int i=0; i<pf_vector_size_; i++){
+    double alpha_ran = rand_alpha_(mt_);
     pf_vector_.push_back(
       pf_alloc(min_particles_, max_particles_,
                  alpha_slow_, alpha_fast_,
                  (int)do_reset_,
-                 alpha_, reset_th_cov_,
+                 alpha_ran, reset_th_cov_,
                  (pf_init_model_fn_t)AmclNode::uniformPoseGenerator,
                  (void *)map_
                 )
@@ -1402,17 +1414,19 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     w_sum.data = pf_->w_sum;
     w_sum_pub_.publish(w_sum);
 
-    for(auto itr=pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
-      int itr_cnt = itr - pf_vector_.begin();
-      if ((*itr)->is_done_reset)
-      {
-        std_msgs::Bool notify;
-        notify.data = (*itr)->is_done_reset;
-        reset_notify_pub_vec_[itr_cnt].publish(notify);
+    if(pub_cnt_ == 10){
+      for(auto itr=pf_vector_.begin(); itr != pf_vector_.end(); ++itr){
+        int itr_cnt = itr - pf_vector_.begin();
+        if ((*itr)->is_done_reset)
+        {
+          std_msgs::Bool notify;
+          notify.data = (*itr)->is_done_reset;
+          // reset_notify_pub_vec_[itr_cnt].publish(notify);
+        }
+        std_msgs::Float64 w_sum;
+        w_sum.data = (*itr)->w_sum;
+        // w_sum_pub_vec_[itr_cnt].publish(w_sum);
       }
-      std_msgs::Float64 w_sum;
-      w_sum.data = (*itr)->w_sum;
-      w_sum_pub_vec_[itr_cnt].publish(w_sum);
     }
     w_sum_sum_ += pf_->w_sum;
 
@@ -1446,7 +1460,9 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
                                                set->samples[i].pose.v[1], 0)),
                           cloud_msg.poses[i]);
         }
-        particlecloud_pub_vec_[itr_cnt].publish(cloud_msg);
+        // if(pub_cnt_ == 10){
+          particlecloud_pub_vec_[itr_cnt].publish(cloud_msg);
+        // }
       }
     }
 
@@ -1471,29 +1487,30 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
       particlecloud_pub_.publish(cloud_msg);
     }
   }
-
   if(resampled){
     auto start = std::chrono::system_clock::now();
-
     std::vector<double> max_w_vec;
     for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){ 
-      pf_sample_set_t *set;
-      set = (*itr)->sets + (*itr)->current_set;
-      std::vector<double> w_vec;
-      for(int i=0; i<set->sample_count; i++){
-        pf_sample_t *sample;
-        sample = set->samples + i;
-        w_vec.push_back(sample->weight);
-      }
-      max_w_vec.push_back(*std::max_element(w_vec.begin(), w_vec.end()));
+    //   pf_sample_set_t *set;
+    //   set = (*itr)->sets + (*itr)->current_set;
+    //   std::vector<double> w_vec;
+    //   for(int i=0; i<set->sample_count; i++){
+    //     pf_sample_t *sample;
+    //     sample = set->samples + i;
+    //     w_vec.push_back(sample->weight);
+    //   }
+      max_w_vec.push_back((*itr)->w_sum) ;
+      std::cout << max_w_vec.size() << "," << (*itr)->w_sum << std::endl;
+      // std::cout << set->sample_count << "," << *std::max_element(w_vec.begin(), w_vec.end()) << std::endl;
+      // max_w_vec.push_back(*std::max_element(w_vec.begin(), w_vec.end()));
     }
     
-    const auto sum = std::accumulate(max_w_vec.begin(), max_w_vec.end(), 0.0);
+    const double sum = std::accumulate(max_w_vec.begin(), max_w_vec.end(), 0.0);
     for(auto& i:max_w_vec){
-      // std::cout << i;
       i /= sum;
+      std::cout << i << ",";
     }
-    // std::cout << std::endl;
+    std::cout << std::endl;
     
     std::vector<int> idx(max_w_vec.size());
     std::iota(idx.begin(), idx.end(), 0);
@@ -1501,41 +1518,37 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     std::sort(
       idx.begin(),
       idx.end(),
-      [&](int x, int y){return max_w_vec[x] < max_w_vec[y];}
+      [&](int x, int y){return max_w_vec[x] > max_w_vec[y];}
     );
-
-    //wの大きい順に，その割合に応じてそのwを持つpfをvectorに追加していく．
-    //w_cntにwを足していって，合計が0.8を超えたらやめる．
-    //残りの2割は，最も最尤なpfのalphaをランダムに変更する（ランダムパーティクルの挿入）
-    std::random_device rnd;
-    std::mt19937 mt(rnd());
-    std::uniform_real_distribution<> rand_alpha(0.0,10.0);
 
     double w_cnt = 0.0;
     int k=0;
     std::vector<pf_t*> pf_vector_current;
-    // ここのループの実装が最悪
-    for(auto i:idx){
-      w_cnt += max_w_vec[i];
+    while(k<pf_vector_size_){
+      if(idx[k]>pf_vector_size_){
+        break;
+      }
+      w_cnt += max_w_vec[idx[k]];
       if(w_cnt <= 0.8){
-        for(int j=0; j<std::round(pf_vector_size_ * max_w_vec[i]); j++){
-          pf_vector_current.push_back(pf_vector_[i]);
+        for(int j=0; j<std::round(pf_vector_size_ * max_w_vec[idx[k]]); j++){
+          pf_vector_current.push_back(pf_vector_[idx[k]]);
+          k++;
         }
       }
       else{
-        pf_vector_current.push_back(pf_vector_[i]);
-        pf_vector_current[k]->alpha = rand_alpha(mt);
+        pf_vector_current.push_back(pf_vector_[idx[k]]);
+        pf_vector_current[k]->alpha = rand_alpha_(mt_);
+        k++;
       }
-      ROS_INFO("%d, %f, %f", i, max_w_vec[i], pf_vector_current[k]->alpha);
-      k++;
+      std::cout << k;
+      ROS_INFO("%d, %lf, %lf", idx[k-1], max_w_vec[idx[k-1]], pf_vector_current[k-1]->alpha);
+      // k++;
     }
-    std::cout << std::endl;
-    // ROS_INFO("pf_vector_current %d", pf_vector_current.size());
-    pf_vector_ = pf_vector_current;
+    std::cout << std::endl; 
 
-    auto end = std::chrono::system_clock::now();
-    // ROS_INFO("%f", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
-    // std::cout << end - start << std::endl;
+    pf_vector_ = pf_vector_current;
+    auto d = std::chrono::system_clock::now() - start;
+    std::cout << std::chrono::duration<double>(d).count() << std::endl;
   }
 
   if (resampled || force_publication)
@@ -1690,6 +1703,10 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
       this->savePoseToServer();
       save_pose_last_time = now;
     }
+  }
+  pub_cnt_++;
+  if(pub_cnt_ > 10){
+    pub_cnt_ = 0;
   }
 }
 
