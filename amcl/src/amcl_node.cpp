@@ -1492,17 +1492,17 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
     auto start = std::chrono::system_clock::now();
     std::vector<double> max_w_vec;
     for(auto itr = pf_vector_.begin(); itr != pf_vector_.end(); ++itr){ 
-    //   pf_sample_set_t *set;
-    //   set = (*itr)->sets + (*itr)->current_set;
-    //   std::vector<double> w_vec;
-    //   for(int i=0; i<set->sample_count; i++){
-    //     pf_sample_t *sample;
-    //     sample = set->samples + i;
-    //     w_vec.push_back(sample->weight);
-    //   }
+      pf_sample_set_t *set;
+      set = (*itr)->sets + ((*itr)->current_set + 1) % 2;
+      std::vector<double> w_vec;
+      for(int i=0; i<set->sample_count; i++){
+        pf_sample_t *sample;
+        sample = set->samples + i;
+        w_vec.push_back(sample->weight);
+      }
       max_w_vec.push_back((*itr)->w_sum) ;
       std::cout << max_w_vec.size() << "," << (*itr)->w_sum << std::endl;
-      // std::cout << set->sample_count << "," << *std::max_element(w_vec.begin(), w_vec.end()) << std::endl;
+      std::cout << set->sample_count << "," << *std::max_element(w_vec.begin(), w_vec.end()) << std::endl;
       // max_w_vec.push_back(*std::max_element(w_vec.begin(), w_vec.end()));
     }
     
@@ -1533,13 +1533,13 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
       if(w_cnt <= 0.8){
         for(int j=0; j<std::round(pf_vector_size_ * max_w_vec[idx[k]]); j++){
           pf_vector_current.push_back(pf_vector_[idx[k]]);
-          k++;
+          if(idx[k]<pf_vector_size_) k++;
         }
       }
       else{
         pf_vector_current.push_back(pf_vector_[idx[k]]);
         pf_vector_current[k]->alpha = rand_alpha_(mt_);
-        k++;
+        if(idx[k]<pf_vector_size_) k++;
       }
       std::cout << k;
       ROS_INFO("%d, %lf, %lf", idx[k-1], max_w_vec[idx[k-1]], pf_vector_current[k-1]->alpha);
@@ -1596,7 +1596,7 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
        */
       
       // PoseWithCovarianceStampedを配信するところコメントアウト中
-       /*
+      //  /*
       geometry_msgs::PoseWithCovarianceStamped p;
       // Fill in the header
       p.header.frame_id = global_frame_id_;
@@ -1633,7 +1633,7 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr &laser_scan)
 
       pose_pub_.publish(p);
       last_published_pose = p;
-      */
+      // */
 
       ROS_DEBUG("New pose: %6.3f %6.3f %6.3f",
                 hyps[max_weight_hyp].pf_pose_mean.v[0],
