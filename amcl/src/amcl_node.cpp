@@ -61,7 +61,7 @@
 
 // Dynamic_reconfigure
 #include "dynamic_reconfigure/server.h"
-#include "er_amcl/AMCLConfig.h"
+#include "amcl/AMCLConfig.h"
 
 // Allows AMCL to run from bag file
 #include <rosbag/bag.h>
