@@ -129,6 +129,7 @@ typedef struct _pf_t
 
   int do_reset;
   double alpha, reset_th_cov;
+  double w_sum;
 
   // Function used to draw random pose samples
   pf_init_model_fn_t random_pose_fn;
