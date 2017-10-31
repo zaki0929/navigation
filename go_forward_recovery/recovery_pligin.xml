@@ -1,0 +1,7 @@
+<library path="lib/librotate_recovery">
+  <class name="go_forward_recovery/GoForwardRecovery" type="go_forward_recovery::GoForwardRecovery" base_class_type="nav_core::RecoveryBehavior">
+    <description>
+      A recovery behavior that go straight along the wall.
+    </description>
+  </class>
+</library>
