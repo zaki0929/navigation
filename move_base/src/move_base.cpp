@@ -106,6 +106,7 @@ namespace move_base {
 
     private_nh.param("shutdown_costmaps", shutdown_costmaps_, false);
     private_nh.param("clearing_rotation_allowed", clearing_rotation_allowed_, true);
+    private_nh.param("clearing_go_forward_allowed", clearing_go_forward_allowed_, false);
     private_nh.param("recovery_behavior_enabled", recovery_behavior_enabled_, true);
 
     //create the ros wrapper for the planner's costmap... and initializer a pointer we'll use with the underlying map
@@ -239,6 +240,7 @@ namespace move_base {
 
     recovery_behavior_enabled_ = config.recovery_behavior_enabled;
     clearing_rotation_allowed_ = config.clearing_rotation_allowed;
+    clearing_go_forward_allowed_ = config.clearing_go_forward_allowed;
     shutdown_costmaps_ = config.shutdown_costmaps;
 
     oscillation_timeout_ = config.oscillation_timeout;
@@ -1140,12 +1142,15 @@ namespace move_base {
       recovery_behaviors_.push_back(cons_clear);
 
       //next, we'll load a recovery behavior to rotate in place
-      //boost::shared_ptr<nav_core::RecoveryBehavior> rotate(recovery_loader_.createInstance("rotate_recovery/RotateRecovery"));
-      boost::shared_ptr<nav_core::RecoveryBehavior> go_forward(recovery_loader_.createInstance("go_forward_recovery/GoForwardRecovery"));
+      boost::shared_ptr<nav_core::RecoveryBehavior> rotate(recovery_loader_.createInstance("rotate_recovery/RotateRecovery"));
       if(clearing_rotation_allowed_){
-        //rotate->initialize("rotate_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
+        rotate->initialize("rotate_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
+        recovery_behaviors_.push_back(rotate);
+      }
+
+      boost::shared_ptr<nav_core::RecoveryBehavior> go_forward(recovery_loader_.createInstance("go_forward_recovery/GoForwardRecovery"));
+      if(clearing_go_forward_allowed_){
         go_forward->initialize("go_forward_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
-        //recovery_behaviors_.push_back(rotate);
         recovery_behaviors_.push_back(go_forward);
       }
 
@@ -1156,7 +1161,9 @@ namespace move_base {
 
       //we'll rotate in-place one more time
       if(clearing_rotation_allowed_)
-        //recovery_behaviors_.push_back(rotate);
+        recovery_behaviors_.push_back(rotate);
+
+      if(clearing_go_forward_allowed_)
         recovery_behaviors_.push_back(go_forward);
     }
     catch(pluginlib::PluginlibException& ex){
