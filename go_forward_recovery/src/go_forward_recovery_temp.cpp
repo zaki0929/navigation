@@ -97,42 +97,42 @@ void GoForwardRecovery::runBehavior(){
   tf::Stamped<tf::Pose> global_pose;
   local_costmap_->getRobotPose(global_pose);
 
-  //double current_angle = -1.0 * M_PI;
+  double current_angle = -1.0 * M_PI;
 
-  //bool got_180 = false;
+  bool got_180 = false;
 
-  //double start_offset = 0 - angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
+  double start_offset = 0 - angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
   while(n.ok()){
     local_costmap_->getRobotPose(global_pose);
 
-    //double norm_angle = angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
-    //current_angle = angles::normalize_angle(norm_angle + start_offset);
+    double norm_angle = angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
+    current_angle = angles::normalize_angle(norm_angle + start_offset);
 
     //compute the distance left to rotate
-    //double dist_left = M_PI - current_angle;
+    double dist_left = M_PI - current_angle;
 
-    //double x = global_pose.getOrigin().x(), y = global_pose.getOrigin().y();
+    double x = global_pose.getOrigin().x(), y = global_pose.getOrigin().y();
 
     //check if that velocity is legal by forward simulating
-    //double sim_angle = 0.0;
-    //while(sim_angle < dist_left){
-      //double theta = tf::getYaw(global_pose.getRotation()) + sim_angle;
+    double sim_angle = 0.0;
+    while(sim_angle < dist_left){
+      double theta = tf::getYaw(global_pose.getRotation()) + sim_angle;
 
       //make sure that the point is legal, if it isn't... we'll abort
-      //double footprint_cost = world_model_->footprintCost(x, y, theta, local_costmap_->getRobotFootprint(), 0.0, 0.0);
-      //if(footprint_cost < 0.0){
-      //  ROS_ERROR("Go forward recovery can't go forward in place because there is a potential collision. Cost: %.2f", footprint_cost);
-      //  return;
-      //}
+      double footprint_cost = world_model_->footprintCost(x, y, theta, local_costmap_->getRobotFootprint(), 0.0, 0.0);
+      if(footprint_cost < 0.0){
+        ROS_ERROR("Go forward recovery can't go forward in place because there is a potential collision. Cost: %.2f", footprint_cost);
+        return;
+      }
 
-      //sim_angle += sim_granularity_;
-    //}
+      sim_angle += sim_granularity_;
+    }
 
     //compute the velocity that will let us stop by the time we reach the goal
-    //double vel = sqrt(2 * acc_lim_th_ * dist_left);
+    double vel = sqrt(2 * acc_lim_th_ * dist_left);
 
     //make sure that this velocity falls within the specified limits
-    //vel = std::min(std::max(vel, min_rotational_vel_), max_rotational_vel_);
+    vel = std::min(std::max(vel, min_rotational_vel_), max_rotational_vel_);
 
     geometry_msgs::Twist cmd_vel;
     cmd_vel.linear.x = 10.0;
@@ -143,12 +143,12 @@ void GoForwardRecovery::runBehavior(){
     ROS_WARN("cmd_vel published.");
 
     //makes sure that we won't decide we're done right after we start
-    //if(current_angle < 0.0)
-    //  got_180 = true;
+    if(current_angle < 0.0)
+      got_180 = true;
 
     //if we're done with our in-place rotation... then return
-    //if(got_180 && current_angle >= (0.0 - tolerance_))
-    //  return;
+    if(got_180 && current_angle >= (0.0 - tolerance_))
+      return;
 
     r.sleep();
   }

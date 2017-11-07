@@ -34,7 +34,6 @@ int main(int argc, char** argv){
   tf::TransformListener tf(ros::Duration(10));
 
   move_base::MoveBase move_base( tf );
-
   //ros::MultiThreadedSpinner s;
   ros::spin();
 
