@@ -135,7 +135,7 @@ void GoForwardRecovery::runBehavior(){
     //vel = std::min(std::max(vel, min_rotational_vel_), max_rotational_vel_);
 
     geometry_msgs::Twist cmd_vel;
-    cmd_vel.linear.x = 10.0;
+    cmd_vel.linear.x = 0.2;
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = 0.0;
 
