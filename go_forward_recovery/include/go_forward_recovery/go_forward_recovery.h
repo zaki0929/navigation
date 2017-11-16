@@ -44,6 +44,9 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Point.h>
 #include <angles/angles.h>
+#include <sensor_msgs/LaserScan.h>
+
+#define RANGE_MAX 5.6
 
 namespace go_forward_recovery{
   /**
@@ -83,9 +86,15 @@ namespace go_forward_recovery{
       costmap_2d::Costmap2D costmap_;
       std::string name_;
       tf::TransformListener* tf_;
+      ros::NodeHandle n;
+      ros::Publisher vel_pub;
+      ros::Subscriber scan_sub;
+      geometry_msgs::Twist cmd_vel;
       bool initialized_;
       double sim_granularity_, min_rotational_vel_, max_rotational_vel_, acc_lim_th_, tolerance_, frequency_;
       base_local_planner::CostmapModel* world_model_;
+      double null_check(double target);
+      void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
   };
 };
 #endif  

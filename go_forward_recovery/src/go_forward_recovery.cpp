@@ -78,6 +78,56 @@ GoForwardRecovery::~GoForwardRecovery(){
   delete world_model_;
 }
 
+double GoForwardRecovery::null_check(double target){
+  if(!(target > 0)){
+    target = (double)RANGE_MAX;
+    ROS_WARN("RANGE OVER");
+  }
+  return target;
+}
+
+void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg){
+  ROS_INFO("center: [%lf]", msg->ranges[(-msg->angle_min)/msg->angle_increment]);
+  double center_number = (-msg->angle_min)/msg->angle_increment;
+  double center = msg->ranges[center_number];
+  double left = msg->ranges[center_number+255];
+  double right = msg->ranges[center_number-255];
+
+  center = null_check(center);
+  left = null_check(left);
+  right = null_check(right);
+
+  ROS_INFO("center: [%lf], left: [%lf], right: [%lf]", center, left, right);
+  //ROS_INFO("center number: [%lf]", (-msg->angle_min)/msg->angle_increment);
+
+  if(center < 0.5){
+    ROS_WARN("center warning!!");
+    cmd_vel.linear.x = 0.0;
+    cmd_vel.linear.y = 0.0;
+    cmd_vel.angular.z = 1.0;
+  }
+  if(left < 0.5){
+    ROS_WARN("left warning!!");
+    cmd_vel.linear.x = 0.0;
+    cmd_vel.linear.y = 0.0;
+    cmd_vel.angular.z = -1.0;
+  }
+  if(right < 0.5){
+    ROS_WARN("right warning!!");
+    cmd_vel.linear.x = 0.0;
+    cmd_vel.linear.y = 0.0;
+    cmd_vel.angular.z = 1.0;
+  }
+  if(center >=0.5 && left >= 0.5 && right >= 0.5){
+    cmd_vel.linear.x = 0.2;
+    cmd_vel.linear.y = 0.0;
+    cmd_vel.angular.z = 0.0;
+  }
+
+  ROS_INFO("x: %lf, y: %lf, z: %lf", cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
+  vel_pub.publish(cmd_vel);
+}
+
 void GoForwardRecovery::runBehavior(){
   if(!initialized_){
     ROS_ERROR("This object must be initialized before runBehavior is called");
@@ -91,19 +141,18 @@ void GoForwardRecovery::runBehavior(){
   ROS_WARN("Go forward recovery behavior started.");
 
   ros::Rate r(frequency_);
-  ros::NodeHandle n;
-  ros::Publisher vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 10);
-
   tf::Stamped<tf::Pose> global_pose;
   local_costmap_->getRobotPose(global_pose);
 
+  scan_sub = n.subscribe("scan", 1000, &GoForwardRecovery::scanCallback, this);
+  vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 10);
   //double current_angle = -1.0 * M_PI;
 
   //bool got_180 = false;
 
   //double start_offset = 0 - angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
-  while(n.ok()){
-    local_costmap_->getRobotPose(global_pose);
+  //while(n.ok()){
+    //local_costmap_->getRobotPose(global_pose);
 
     //double norm_angle = angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
     //current_angle = angles::normalize_angle(norm_angle + start_offset);
@@ -134,13 +183,12 @@ void GoForwardRecovery::runBehavior(){
     //make sure that this velocity falls within the specified limits
     //vel = std::min(std::max(vel, min_rotational_vel_), max_rotational_vel_);
 
-    geometry_msgs::Twist cmd_vel;
-    cmd_vel.linear.x = 0.2;
-    cmd_vel.linear.y = 0.0;
-    cmd_vel.angular.z = 0.0;
+    //cmd_vel.linear.x = 0.2;
+    //cmd_vel.linear.y = 0.0;
+    //cmd_vel.angular.z = 0.0;
 
-    vel_pub.publish(cmd_vel);
-    ROS_WARN("cmd_vel published.");
+    //vel_pub.publish(cmd_vel);
+    //ROS_WARN("cmd_vel published.");
 
     //makes sure that we won't decide we're done right after we start
     //if(current_angle < 0.0)
@@ -150,7 +198,7 @@ void GoForwardRecovery::runBehavior(){
     //if(got_180 && current_angle >= (0.0 - tolerance_))
     //  return;
 
-    r.sleep();
-  }
+    //r.sleep();
+  //}
 }
 };
