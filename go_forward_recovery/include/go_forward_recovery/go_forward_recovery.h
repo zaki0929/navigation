@@ -33,6 +33,7 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *
 * Author: Eitan Marder-Eppstein
+*         Ryo Okazaki
 *********************************************************************/
 #ifndef GO_FORWARD_RECOVERY_H_
 #define GO_FORWARD_RECOVERY_H_

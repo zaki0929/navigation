@@ -33,6 +33,7 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *
 * Author: Eitan Marder-Eppstein
+*         Ryo Okazaki
 *********************************************************************/
 #include <go_forward_recovery/go_forward_recovery.h>
 #include <pluginlib/class_list_macros.h>
@@ -81,13 +82,12 @@ GoForwardRecovery::~GoForwardRecovery(){
 double GoForwardRecovery::null_check(double target){
   if(!(target > 0)){
     target = (double)RANGE_MAX;
-    ROS_WARN("RANGE OVER");
+    //ROS_WARN("RANGE OVER");
   }
   return target;
 }
 
 void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg){
-  ROS_INFO("center: [%lf]", msg->ranges[(-msg->angle_min)/msg->angle_increment]);
   double center_number = (-msg->angle_min)/msg->angle_increment;
   double center = msg->ranges[center_number];
   double left = msg->ranges[center_number+255];
@@ -148,9 +148,6 @@ void GoForwardRecovery::runBehavior(){
   ROS_WARN("Go forward recovery behavior started.");
   sub_n = 0;
   sub_flag = 1;
-  //ros::Rate r(frequency_);
-  //tf::Stamped<tf::Pose> global_pose;
-  //local_costmap_->getRobotPose(global_pose);
   scan_sub = n.subscribe("scan", 1000, &GoForwardRecovery::scanCallback, this);
   vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 10);
   while(n.ok()){
@@ -158,59 +155,5 @@ void GoForwardRecovery::runBehavior(){
       return;
     }
   }
-  //double current_angle = -1.0 * M_PI;
-
-  //bool got_180 = false;
-
-  //double start_offset = 0 - angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
-  //while(n.ok()){
-    //local_costmap_->getRobotPose(global_pose);
-
-    //double norm_angle = angles::normalize_angle(tf::getYaw(global_pose.getRotation()));
-    //current_angle = angles::normalize_angle(norm_angle + start_offset);
-
-    //compute the distance left to rotate
-    //double dist_left = M_PI - current_angle;
-
-    //double x = global_pose.getOrigin().x(), y = global_pose.getOrigin().y();
-
-    //check if that velocity is legal by forward simulating
-    //double sim_angle = 0.0;
-    //while(sim_angle < dist_left){
-      //double theta = tf::getYaw(global_pose.getRotation()) + sim_angle;
-
-      //make sure that the point is legal, if it isn't... we'll abort
-      //double footprint_cost = world_model_->footprintCost(x, y, theta, local_costmap_->getRobotFootprint(), 0.0, 0.0);
-      //if(footprint_cost < 0.0){
-      //  ROS_ERROR("Go forward recovery can't go forward in place because there is a potential collision. Cost: %.2f", footprint_cost);
-      //  return;
-      //}
-
-      //sim_angle += sim_granularity_;
-    //}
-
-    //compute the velocity that will let us stop by the time we reach the goal
-    //double vel = sqrt(2 * acc_lim_th_ * dist_left);
-
-    //make sure that this velocity falls within the specified limits
-    //vel = std::min(std::max(vel, min_rotational_vel_), max_rotational_vel_);
-
-    //cmd_vel.linear.x = 0.2;
-    //cmd_vel.linear.y = 0.0;
-    //cmd_vel.angular.z = 0.0;
-
-    //vel_pub.publish(cmd_vel);
-    //ROS_WARN("cmd_vel published.");
-
-    //makes sure that we won't decide we're done right after we start
-    //if(current_angle < 0.0)
-    //  got_180 = true;
-
-    //if we're done with our in-place rotation... then return
-    //if(got_180 && current_angle >= (0.0 - tolerance_))
-    //  return;
-
-    //r.sleep();
-  //}
 }
 };
