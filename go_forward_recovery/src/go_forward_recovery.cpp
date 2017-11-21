@@ -97,7 +97,7 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
   left = null_check(left);
   right = null_check(right);
 
-  ROS_INFO("center: [%lf], left: [%lf], right: [%lf]", center, left, right);
+  //ROS_INFO("center: [%lf], left: [%lf], right: [%lf]", center, left, right);
   //ROS_INFO("center number: [%lf]", (-msg->angle_min)/msg->angle_increment);
 
   if(center < 0.5){
@@ -106,26 +106,33 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = 1.0;
   }
-  if(left < 0.5){
+  if(left < 0.4){
     ROS_WARN("left warning!!");
     cmd_vel.linear.x = 0.0;
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = -1.0;
   }
-  if(right < 0.5){
+  if(right < 0.4){
     ROS_WARN("right warning!!");
     cmd_vel.linear.x = 0.0;
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = 1.0;
   }
-  if(center >=0.5 && left >= 0.5 && right >= 0.5){
+  if(center >=0.5 && left >= 0.4 && right >= 0.4){
     cmd_vel.linear.x = 0.2;
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = 0.0;
   }
 
-  ROS_INFO("x: %lf, y: %lf, z: %lf", cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
+  //ROS_INFO("x: %lf, y: %lf, z: %lf", cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
   vel_pub.publish(cmd_vel);
+  ROS_INFO("sub_n: %d", sub_n);
+  sub_n++;
+  if(sub_n > 500){
+    scan_sub.shutdown();
+    sub_flag = 0;
+    return;
+  }
 }
 
 void GoForwardRecovery::runBehavior(){
@@ -139,13 +146,18 @@ void GoForwardRecovery::runBehavior(){
     return;
   }
   ROS_WARN("Go forward recovery behavior started.");
-
-  ros::Rate r(frequency_);
-  tf::Stamped<tf::Pose> global_pose;
-  local_costmap_->getRobotPose(global_pose);
-
+  sub_n = 0;
+  sub_flag = 1;
+  //ros::Rate r(frequency_);
+  //tf::Stamped<tf::Pose> global_pose;
+  //local_costmap_->getRobotPose(global_pose);
   scan_sub = n.subscribe("scan", 1000, &GoForwardRecovery::scanCallback, this);
   vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 10);
+  while(n.ok()){
+    if(sub_flag == 0){
+      return;
+    }
+  }
   //double current_angle = -1.0 * M_PI;
 
   //bool got_180 = false;

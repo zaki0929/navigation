@@ -95,6 +95,7 @@ namespace go_forward_recovery{
       base_local_planner::CostmapModel* world_model_;
       double null_check(double target);
       void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
+      int sub_n, sub_flag;
   };
 };
 #endif  
