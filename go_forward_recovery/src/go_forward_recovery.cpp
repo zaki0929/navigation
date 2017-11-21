@@ -136,15 +136,15 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
 }
 
 void GoForwardRecovery::runBehavior(){
-  if(!initialized_){
+  /*if(!initialized_){
     ROS_ERROR("This object must be initialized before runBehavior is called");
     return;
-  }
+  }*/
 
-  if(global_costmap_ == NULL || local_costmap_ == NULL){
+  /*if(global_costmap_ == NULL || local_costmap_ == NULL){
     ROS_ERROR("The costmaps passed to the GoForwardRecovery object cannot be NULL. Doing nothing.");
     return;
-  }
+  }*/
   ROS_WARN("Go forward recovery behavior started.");
   sub_n = 0;
   sub_flag = 1;
