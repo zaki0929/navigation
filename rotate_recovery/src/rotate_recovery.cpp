@@ -57,6 +57,7 @@ void RotateRecovery::initialize(std::string name, tf::TransformListener* tf,
     ros::NodeHandle blp_nh("~/TrajectoryPlannerROS");
 
     //we'll simulate every degree by default
+    /*
     private_nh.param("sim_granularity", sim_granularity_, 0.017);
     private_nh.param("frequency", frequency_, 20.0);
 
@@ -64,6 +65,15 @@ void RotateRecovery::initialize(std::string name, tf::TransformListener* tf,
     blp_nh.param("max_rotational_vel", max_rotational_vel_, 1.0);
     blp_nh.param("min_in_place_rotational_vel", min_rotational_vel_, 0.4);
     blp_nh.param("yaw_goal_tolerance", tolerance_, 0.10);
+    */
+
+    private_nh.param("sim_granularity", sim_granularity_, 0.025);
+    private_nh.param("frequency", frequency_, 20.0);
+
+    blp_nh.param("acc_lim_theta", acc_lim_th_, 0.5);
+    blp_nh.param("max_vel_theta", max_rotational_vel_, 2.0);
+    blp_nh.param("min_in_place_vel_theta", min_rotational_vel_, 1.0);
+    blp_nh.param("yaw_goal_tolerance", tolerance_, 0.50);
 
     world_model_ = new base_local_planner::CostmapModel(*local_costmap_->getCostmap());
 
