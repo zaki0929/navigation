@@ -5,6 +5,9 @@
 *  Copyright (c) 2009, Willow Garage, Inc.
 *  All rights reserved.
 *
+*  Copyright (c) 2017, Ryo Okazaki.
+*  All rights reserved.
+*
 *  Redistribution and use in source and binary forms, with or without
 *  modification, are permitted provided that the following conditions
 *  are met:
@@ -52,35 +55,9 @@ void GoForwardRecovery::initialize(std::string name, tf::TransformListener* tf,
     tf_ = tf;
     global_costmap_ = global_costmap;
     local_costmap_ = local_costmap;
-
-    //get some parameters from the parameter server
-    ros::NodeHandle private_nh("~/" + name_);
-    ros::NodeHandle blp_nh("~/TrajectoryPlannerROS");
-
-    //we'll simulate every degree by default
-    /*
-    private_nh.param("sim_granularity", sim_granularity_, 0.017);
-    private_nh.param("frequency", frequency_, 20.0);
-
-    blp_nh.param("acc_lim_th", acc_lim_th_, 3.2);
-    blp_nh.param("max_rotational_vel", max_rotational_vel_, 1.0);
-    blp_nh.param("min_in_place_rotational_vel", min_rotational_vel_, 0.4);
-    blp_nh.param("yaw_goal_tolerance", tolerance_, 0.10);
-    */
-
-    private_nh.param("sim_granularity", sim_granularity_, 0.025);
-    private_nh.param("frequency", frequency_, 20.0);
-
-    blp_nh.param("acc_lim_theta", acc_lim_th_, 0.5);
-    blp_nh.param("max_vel_theta", max_rotational_vel_, 2.0);
-    blp_nh.param("min_in_place_vel_theta", min_rotational_vel_, 1.0);
-    blp_nh.param("yaw_goal_tolerance", tolerance_, 0.50);
-
     world_model_ = new base_local_planner::CostmapModel(*local_costmap_->getCostmap());
-
     initialized_ = true;
-  }
-  else{
+  }else{
     ROS_ERROR("You should not call initialize twice on this object, doing nothing");
   }
 }
@@ -146,19 +123,15 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
 }
 
 void GoForwardRecovery::runBehavior(){
-  /*if(!initialized_){
+  if(!initialized_){
     ROS_ERROR("This object must be initialized before runBehavior is called");
     return;
-  }*/
+  }
 
-  /*if(global_costmap_ == NULL || local_costmap_ == NULL){
-    ROS_ERROR("The costmaps passed to the GoForwardRecovery object cannot be NULL. Doing nothing.");
-    return;
-  }*/
   ROS_WARN("Go forward recovery behavior started.");
   sub_n = 0;
   sub_flag = 1;
-  scan_sub = n.subscribe("scan", 1000, &GoForwardRecovery::scanCallback, this);
+  scan_sub = n.subscribe("scan", 10, &GoForwardRecovery::scanCallback, this);
   vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 10);
   while(n.ok()){
     if(sub_flag == 0){

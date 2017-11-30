@@ -5,6 +5,9 @@
 *  Copyright (c) 2009, Willow Garage, Inc.
 *  All rights reserved.
 *
+*  Copyright (c) 2017, Ryo Okazaki.
+*  All rights reserved.
+*
 *  Redistribution and use in source and binary forms, with or without
 *  modification, are permitted provided that the following conditions
 *  are met:
@@ -71,7 +74,6 @@ namespace go_forward_recovery{
       ros::Subscriber scan_sub;
       geometry_msgs::Twist cmd_vel;
       bool initialized_;
-      double sim_granularity_, min_rotational_vel_, max_rotational_vel_, acc_lim_th_, tolerance_, frequency_;
       base_local_planner::CostmapModel* world_model_;
       double null_check(double target);
       void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
