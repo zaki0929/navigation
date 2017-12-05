@@ -1142,17 +1142,15 @@ namespace move_base {
       recovery_behaviors_.push_back(cons_clear);
 
       //next, we'll load a recovery behavior to rotate in place
-      //boost::shared_ptr<nav_core::RecoveryBehavior> rotate(recovery_loader_.createInstance("rotate_recovery/RotateRecovery"));
-      //if(clearing_rotation_allowed_){
-      //if(1){
-      //  rotate->initialize("rotate_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
-      //  recovery_behaviors_.push_back(rotate);
-      //  ROS_INFO("rotate!!");
-      //}
+      boost::shared_ptr<nav_core::RecoveryBehavior> rotate(recovery_loader_.createInstance("rotate_recovery/RotateRecovery"));
+      if(clearing_rotation_allowed_){
+        rotate->initialize("rotate_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
+        recovery_behaviors_.push_back(rotate);
+        ROS_INFO("rotate!!");
+      }
 
       boost::shared_ptr<nav_core::RecoveryBehavior> go_forward(recovery_loader_.createInstance("go_forward_recovery/GoForwardRecovery"));
-      //if(clearing_go_forward_allowed_){
-      if(1){
+      if(clearing_go_forward_allowed_){
         go_forward->initialize("go_forward_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
         recovery_behaviors_.push_back(go_forward);
         ROS_INFO("go_forward!!");
@@ -1164,14 +1162,20 @@ namespace move_base {
       recovery_behaviors_.push_back(ags_clear);
 
       //we'll rotate in-place one more time
-      //if(clearing_rotation_allowed_){
-      //if(1){
-      //  recovery_behaviors_.push_back(rotate);
-      //  ROS_INFO("rotate!!");
-      //}
+      if(clearing_rotation_allowed_){
+        recovery_behaviors_.push_back(rotate);
+        ROS_INFO("rotate!!");
+      }
 
-      //if(clearing_go_forward_allowed_){
-      if(1){
+      if(clearing_go_forward_allowed_){
+        recovery_behaviors_.push_back(go_forward);
+        ROS_INFO("go_forward!!");
+      }
+      if(clearing_go_forward_allowed_){
+        recovery_behaviors_.push_back(go_forward);
+        ROS_INFO("go_forward!!");
+      }
+      if(clearing_go_forward_allowed_){
         recovery_behaviors_.push_back(go_forward);
         ROS_INFO("go_forward!!");
       }
