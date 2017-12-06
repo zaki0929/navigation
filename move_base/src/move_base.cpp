@@ -1171,14 +1171,6 @@ namespace move_base {
         recovery_behaviors_.push_back(go_forward);
         ROS_INFO("go_forward!!");
       }
-      if(clearing_go_forward_allowed_){
-        recovery_behaviors_.push_back(go_forward);
-        ROS_INFO("go_forward!!");
-      }
-      if(clearing_go_forward_allowed_){
-        recovery_behaviors_.push_back(go_forward);
-        ROS_INFO("go_forward!!");
-      }
     }
     catch(pluginlib::PluginlibException& ex){
       ROS_FATAL("Failed to load a plugin. This should not happen on default recovery behaviors. Error: %s", ex.what());
