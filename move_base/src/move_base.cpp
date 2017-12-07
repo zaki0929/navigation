@@ -992,6 +992,8 @@ namespace move_base {
         if(recovery_behavior_enabled_ && recovery_index_ < recovery_behaviors_.size()){
           ROS_DEBUG_NAMED("move_base_recovery","Executing behavior %u of %zu", recovery_index_, recovery_behaviors_.size());
           recovery_behaviors_[recovery_index_]->runBehavior();
+	      ROS_WARN("recovery index: %d", recovery_index_);
+          ROS_WARN("recovery behaviors size: %d", recovery_behaviors_.size());
 
           //we at least want to give the robot some time to stop oscillating after executing the behavior
           last_oscillation_reset_ = ros::Time::now();
@@ -1136,41 +1138,32 @@ namespace move_base {
       n.setParam("conservative_reset/reset_distance", conservative_reset_dist_);
       n.setParam("aggressive_reset/reset_distance", circumscribed_radius_ * 4);
 
-      //first, we'll load a recovery behavior to clear the costmap
+      //first, we'll load a recovery behavior
       boost::shared_ptr<nav_core::RecoveryBehavior> cons_clear(recovery_loader_.createInstance("clear_costmap_recovery/ClearCostmapRecovery"));
       cons_clear->initialize("conservative_reset", &tf_, planner_costmap_ros_, controller_costmap_ros_);
-      recovery_behaviors_.push_back(cons_clear);
 
-      //next, we'll load a recovery behavior to rotate in place
       boost::shared_ptr<nav_core::RecoveryBehavior> rotate(recovery_loader_.createInstance("rotate_recovery/RotateRecovery"));
-      if(clearing_rotation_allowed_){
-        rotate->initialize("rotate_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
-        recovery_behaviors_.push_back(rotate);
-        ROS_INFO("rotate!!");
-      }
+      rotate->initialize("rotate_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
 
       boost::shared_ptr<nav_core::RecoveryBehavior> go_forward(recovery_loader_.createInstance("go_forward_recovery/GoForwardRecovery"));
-      if(clearing_go_forward_allowed_){
-        go_forward->initialize("go_forward_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
-        recovery_behaviors_.push_back(go_forward);
-        ROS_INFO("go_forward!!");
-      }
-
-      //next, we'll load a recovery behavior that will do an aggressive reset of the costmap
+      go_forward->initialize("go_forward_recovery", &tf_, planner_costmap_ros_, controller_costmap_ros_);
+      
       boost::shared_ptr<nav_core::RecoveryBehavior> ags_clear(recovery_loader_.createInstance("clear_costmap_recovery/ClearCostmapRecovery"));
       ags_clear->initialize("aggressive_reset", &tf_, planner_costmap_ros_, controller_costmap_ros_);
+     
+
+      //next, we'll define in what order to recover 
+      recovery_behaviors_.push_back(cons_clear);
+      recovery_behaviors_.push_back(rotate);
+      recovery_behaviors_.push_back(go_forward);
+      recovery_behaviors_.push_back(ags_clear);
+      recovery_behaviors_.push_back(rotate);
+      recovery_behaviors_.push_back(go_forward);
+      recovery_behaviors_.push_back(ags_clear);
+      recovery_behaviors_.push_back(rotate);
+      recovery_behaviors_.push_back(go_forward);
       recovery_behaviors_.push_back(ags_clear);
 
-      //we'll rotate in-place one more time
-      if(clearing_rotation_allowed_){
-        recovery_behaviors_.push_back(rotate);
-        ROS_INFO("rotate!!");
-      }
-
-      if(clearing_go_forward_allowed_){
-        recovery_behaviors_.push_back(go_forward);
-        ROS_INFO("go_forward!!");
-      }
     }
     catch(pluginlib::PluginlibException& ex){
       ROS_FATAL("Failed to load a plugin. This should not happen on default recovery behaviors. Error: %s", ex.what());
