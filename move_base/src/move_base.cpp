@@ -993,7 +993,7 @@ namespace move_base {
           ROS_DEBUG_NAMED("move_base_recovery","Executing behavior %u of %zu", recovery_index_, recovery_behaviors_.size());
           recovery_behaviors_[recovery_index_]->runBehavior();
 	      ROS_WARN("recovery index: %d", recovery_index_);
-          ROS_WARN("recovery behaviors size: %d", recovery_behaviors_.size());
+          ROS_WARN("recovery behaviors size: %zu", recovery_behaviors_.size());
 
           //we at least want to give the robot some time to stop oscillating after executing the behavior
           last_oscillation_reset_ = ros::Time::now();
@@ -1161,10 +1161,6 @@ namespace move_base {
         recovery_behaviors_.push_back(ags_clear);
         recovery_behaviors_.push_back(rotate);
         recovery_behaviors_.push_back(go_forward);
-        recovery_behaviors_.push_back(ags_clear);
-        recovery_behaviors_.push_back(rotate);
-        recovery_behaviors_.push_back(go_forward);
-        recovery_behaviors_.push_back(ags_clear);
         rb_n++;
       }
     }
