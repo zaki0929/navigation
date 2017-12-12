@@ -115,7 +115,7 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
   vel_pub.publish(cmd_vel);
   ROS_INFO("sub_n: %d", sub_n);
   sub_n++;
-  if(sub_n > 150){
+  if(sub_n > 100){
     scan_sub.shutdown();
     sub_flag = 0;
     return;
