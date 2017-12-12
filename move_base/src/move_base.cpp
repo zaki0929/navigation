@@ -1154,7 +1154,7 @@ namespace move_base {
 
       //next, we'll define in what order to recover 
       int rb_n = 0;
-      if(rb_n < 100){
+      while(rb_n < 100){
         recovery_behaviors_.push_back(cons_clear);
         recovery_behaviors_.push_back(rotate);
         recovery_behaviors_.push_back(go_forward);
