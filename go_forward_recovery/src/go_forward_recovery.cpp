@@ -77,8 +77,8 @@ double GoForwardRecovery::null_check(double target){
 void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg){
   double center_number = (-msg->angle_min)/msg->angle_increment;
   double center = msg->ranges[center_number];
-  double left = msg->ranges[center_number+255];
-  double right = msg->ranges[center_number-255];
+  double left = msg->ranges[center_number+128];
+  double right = msg->ranges[center_number-128];
 
   center = null_check(center);
   left = null_check(left);
