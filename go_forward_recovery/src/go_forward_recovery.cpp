@@ -105,10 +105,15 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = 1.0;
   }
-  if(center >=0.5 && left >= 0.4 && right >= 0.4){
+  if(center >=0.5 && left >= 0.4 && left < 1.2 && right >= 0.4){
     cmd_vel.linear.x = 0.2;
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = 0.0;
+  }
+  if(center >=0.5 && left >= 1.2 && right >= 0.4){
+    cmd_vel.linear.x = 0.2;
+    cmd_vel.linear.y = 0.0;
+    cmd_vel.angular.z = 0.5;
   }
 
   //ROS_INFO("x: %lf, y: %lf, z: %lf", cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
