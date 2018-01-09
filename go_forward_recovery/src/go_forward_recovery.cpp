@@ -79,10 +79,12 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
   double center = msg->ranges[center_number];
   double left = msg->ranges[center_number+128];
   double right = msg->ranges[center_number-128];
+  double back_left = msg->ranges[msg->ranges.size()-1];
 
   center = null_check(center);
   left = null_check(left);
   right = null_check(right);
+  back_left = null_check(back_left);
 
   //ROS_INFO("center: [%lf], left: [%lf], right: [%lf]", center, left, right);
   //ROS_INFO("center number: [%lf]", (-msg->angle_min)/msg->angle_increment);
@@ -91,7 +93,7 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
     ROS_WARN("center warning!!");
     cmd_vel.linear.x = 0.0;
     cmd_vel.linear.y = 0.0;
-    cmd_vel.angular.z = 1.0;
+    cmd_vel.angular.z = -1.0;
   }
   if(left < 0.4){
     ROS_WARN("left warning!!");
@@ -110,10 +112,15 @@ void GoForwardRecovery::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = 0.0;
   }
-  if(center >=0.5 && left >= 1.2 && right >= 0.4){
+  if(center >=0.5 && left >= 1.2 && right >= 0.4 && back_left < 0.35){
     cmd_vel.linear.x = 0.2;
     cmd_vel.linear.y = 0.0;
     cmd_vel.angular.z = 0.5;
+  }
+  if(center >=0.5 && left >= 1.2 && right >= 0.4 && back_left >= 0.35){
+    cmd_vel.linear.x = 0.2;
+    cmd_vel.linear.y = 0.0;
+    cmd_vel.angular.z = 0.0;
   }
 
   //ROS_INFO("x: %lf, y: %lf, z: %lf", cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);

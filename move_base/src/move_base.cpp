@@ -42,6 +42,7 @@
 #include <boost/thread.hpp>
 
 #include <geometry_msgs/Twist.h>
+#include <std_msgs/Float32.h>
 
 namespace move_base {
 
@@ -97,6 +98,7 @@ namespace move_base {
     //like nav_view and rviz
     ros::NodeHandle simple_nh("move_base_simple");
     goal_sub_ = simple_nh.subscribe<geometry_msgs::PoseStamped>("goal", 1, boost::bind(&MoveBase::goalCB, this, _1));
+    //alpha_sub_ = simple_nh.subscribe<std_msgs::Float32>("alpha", 1, &MoveBase::alphaCB, this);
 
     //we'll assume the radius of the robot to be consistent with what's specified for the costmaps
     private_nh.param("local_costmap/inscribed_radius", inscribed_radius_, 0.325);
@@ -329,6 +331,12 @@ namespace move_base {
 
     action_goal_pub_.publish(action_goal);
   }
+
+  //void MoveBase::alphaCB(const std_msgs::Float32::ConstPtr& msg){
+  //  double alpha;
+  //  alpha = msg->data;
+  //  ROS_INFO("alpha: %lf", alpha);
+  //}
 
   void MoveBase::clearCostmapWindows(double size_x, double size_y){
     tf::Stamped<tf::Pose> global_pose;
@@ -915,15 +923,18 @@ namespace move_base {
           planner_cond_.notify_one();
         }
         ROS_DEBUG_NAMED("move_base","Waiting for plan, in the planning state.");
+        ROS_INFO("----PLANNING----");
         break;
 
       //if we're controlling, we'll attempt to find valid velocity commands
       case CONTROLLING:
         ROS_DEBUG_NAMED("move_base","In controlling state.");
+        ROS_INFO("----CONTROLLING----");
 
         //check to see if we've reached our goal
         if(tc_->isGoalReached()){
           ROS_DEBUG_NAMED("move_base","Goal reached!");
+          ROS_INFO("----GOAL REACHED----");
           resetState();
 
           //disable the planner thread
@@ -988,6 +999,7 @@ namespace move_base {
       //we'll try to clear out space with any user-provided recovery behaviors
       case CLEARING:
         ROS_DEBUG_NAMED("move_base","In clearing/recovery state");
+        ROS_INFO("----CLEARING----");
         //we'll invoke whatever recovery behavior we're currently on if they're enabled
         if(recovery_behavior_enabled_ && recovery_index_ < recovery_behaviors_.size()){
           ROS_DEBUG_NAMED("move_base_recovery","Executing behavior %u of %zu", recovery_index_, recovery_behaviors_.size());
